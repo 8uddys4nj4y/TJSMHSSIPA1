@@ -4,6 +4,11 @@ name: iPhone app (.ipa for sideloading)
 # Sideloadly / AltStore signs it with your own Apple ID when you install it. Run it from the Actions tab > "Run workflow".
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write   # lets the run publish the .ipa on the Releases page (GitHub's own per-run token, no secret to set up)
 
 jobs:
   ipa:
@@ -52,3 +57,12 @@ jobs:
           name: TJS-MHSS-iPhone-ipa
           path: "*.ipa"
           if-no-files-found: error
+
+      # a public download link on the repository's Releases page (no GitHub login needed to download)
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="ipa-$VERSION-run${{ github.run_number }}"
+          gh release create "$TAG" *.ipa --title "TJS MHSS iPhone $VERSION" --notes "Unsigned .ipa. Install with Sideloadly or AltStore (free Apple ID), see ios/INSTALL-FREE.md."
