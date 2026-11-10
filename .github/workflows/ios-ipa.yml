@@ -1,0 +1,54 @@
+name: iPhone app (.ipa for sideloading)
+
+# Builds the Matric app (TJS MHSS) for iPhone on a free GitHub Mac and publishes an UNSIGNED .ipa.
+# Sideloadly / AltStore signs it with your own Apple ID when you install it. Run it from the Actions tab > "Run workflow".
+on:
+  workflow_dispatch:
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # only the three Capacitor plugins are needed (the web app is already built into ios/App/App/public)
+      - name: Install plugins
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Show Xcode
+        run: xcodebuild -version
+
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -project ios/App/App.xcodeproj -scheme App
+
+      - name: Build (no signing)
+        run: |
+          xcodebuild build \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | tail -n 40
+
+      - name: Make the .ipa
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          APP=build/Build/Products/Release-iphoneos/App.app
+          test -d "$APP" || { echo "App.app not found"; exit 1; }
+          rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
+          zip -qry "TJS-MHSS-$VERSION-unsigned.ipa" Payload
+          ls -lh *.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TJS-MHSS-iPhone-ipa
+          path: "*.ipa"
+          if-no-files-found: error

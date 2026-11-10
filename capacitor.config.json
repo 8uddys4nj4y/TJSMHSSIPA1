@@ -1,0 +1,6 @@
+{
+  "appId": "in.tjs.billing",
+  "appName": "TJS Billing",
+  "webDir": "dist",
+  "android": { "allowMixedContent": false }
+}
