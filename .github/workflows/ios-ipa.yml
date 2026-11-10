@@ -33,6 +33,7 @@ jobs:
 
       - name: Build (no signing)
         run: |
+          set -o pipefail
           xcodebuild build \
             -project ios/App/App.xcodeproj \
             -scheme App \
@@ -41,13 +42,13 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            | tail -n 40
+            2>&1 | tee xcodebuild.log | tail -n 60
 
       - name: Make the .ipa
         run: |
           VERSION=$(node -p "require('./package.json').version")
           APP=build/Build/Products/Release-iphoneos/App.app
-          test -d "$APP" || { echo "App.app not found"; exit 1; }
+          test -f "$APP/Info.plist" && test -f "$APP/App" || { echo "The app was not built: no Info.plist / binary in $APP"; ls -R "$APP" | head -20; exit 1; }
           rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
           zip -qry "TJS-MHSS-$VERSION-unsigned.ipa" Payload
           ls -lh *.ipa
@@ -60,9 +61,10 @@ jobs:
 
       # a public download link on the repository's Releases page (no GitHub login needed to download)
       - name: Publish release
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="ipa-$VERSION-run${{ github.run_number }}"
-          gh release create "$TAG" *.ipa --title "TJS MHSS iPhone $VERSION" --notes "Unsigned .ipa. Install with Sideloadly or AltStore (free Apple ID), see ios/INSTALL-FREE.md."
+          gh release create "$TAG" $(ls *.ipa xcodebuild.log 2>/dev/null) --title "TJS MHSS iPhone $VERSION (run ${{ github.run_number }})" --notes "Unsigned .ipa (if present) and the Xcode build log. Install the .ipa with Sideloadly or AltStore (free Apple ID), see ios/INSTALL-FREE.md."
