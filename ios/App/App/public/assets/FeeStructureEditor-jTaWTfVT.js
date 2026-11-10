@@ -1,0 +1,1 @@
+import{n as e}from"./createLucideIcon-DseriEAs.js";import{t}from"./SchoolFeeStructure-BUeJsWb4.js";var n=e();function r(){return(0,n.jsx)(t,{})}export{r as default};
